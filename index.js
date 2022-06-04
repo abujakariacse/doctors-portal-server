@@ -39,6 +39,20 @@ async function run() {
             res.send('Server is running.....')
         });
 
+        // Set admin role
+        app.put('/user/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        // Get token
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
@@ -114,7 +128,7 @@ async function run() {
         })
 
         // Get All User
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
         })
