@@ -33,11 +33,47 @@ async function run() {
         const serviceCollection = client.db('doctors-portal').collection('service');
         const bookingCollection = client.db('doctors-portal').collection('bookings');
         const userCollection = client.db('doctors-portal').collection('users');
+        const doctorCollection = client.db('doctors-portal').collection('doctors');
 
         // To check server is running or not on browser
         app.get('/', (req, res) => {
             res.send('Server is running.....')
         });
+
+        // Verify Admin
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded?.email;
+            const requesterAccount = await userCollection.findOne({
+                email: requester
+            });
+            if (requesterAccount.role === 'admin') {
+                next();
+            }
+            else {
+                res.status(403).send({ message: 'Access Denied' })
+            }
+        }
+
+        // select only sub field of object from db
+        app.get('/specialties', async (req, res) => {
+            const query = {};
+            const cursor = serviceCollection.find(query).project({ name: 1 });
+            const result = await cursor.toArray();
+            res.send(result)
+        });
+
+        // Add a doctor
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorCollection.insertOne(doctor);
+            res.send(result);
+
+        });
+
+        app.get('/doctors', async (req, res) => {
+            const result = await doctorCollection.find().toArray();
+            res.send(result)
+        })
 
         // Limit dashboard feature using admin role on ui
         app.get('/admin/:email', async (req, res) => {
@@ -48,48 +84,31 @@ async function run() {
         })
 
         // Set admin role
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({
-                email: requester
-            });
-            if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updateDoc = {
-                    $set: {
-                        role: 'admin'
-                    }
-                };
-                const result = await userCollection.updateOne(filter, updateDoc);
-                res.send(result);
-            }
-            else {
-                res.status(403).send({ message: 'Access Denied' })
-            }
+            const filter = { email: email };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
 
         });
 
         // Remove from admin
-        app.put('/admin/remove/:email', verifyJWT, async (req, res) => {
+        app.put('/admin/remove/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({ email: requester });
-            if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updateDoc = {
-                    $set: {
-                        role: 'user'
-                    }
+            const filter = { email: email };
+            const updateDoc = {
+                $set: {
+                    role: 'user'
                 }
-                const options = { upsert: true };
-                const result = await userCollection.updateOne(filter, updateDoc, options);
-                res.send(result);
             }
-            else {
-                res.status(403).send({ message: 'Access Denied' })
-            }
-
+            const options = { upsert: true };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+            res.send(result);
         })
 
         // Delete a user from db
