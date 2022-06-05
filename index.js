@@ -4,7 +4,7 @@ const cors = require('cors');
 const port = process.env.PORT || 5000;
 require("dotenv").config();
 const jwt = require('jsonwebtoken');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 app.use(cors());
 app.use(express.json());
 
@@ -39,16 +39,64 @@ async function run() {
             res.send('Server is running.....')
         });
 
-        // Set admin role
-        app.put('/user/admin/:email', async (req, res) => {
+        // Limit dashboard feature using admin role
+        app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
-            const filter = { email: email };
-            const updateDoc = {
-                $set: {
-                    role: 'admin'
+            const result = await userCollection.findOne({ email: email });
+            const role = result.role;
+            res.send({ role })
+        })
+
+        // Set admin role
+        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({
+                email: requester
+            });
+            if (requesterAccount.role === 'admin') {
+                const filter = { email: email };
+                const updateDoc = {
+                    $set: {
+                        role: 'admin'
+                    }
+                };
+                const result = await userCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            }
+            else {
+                res.status(403).send({ message: 'Access Denied' })
+            }
+
+        });
+
+        // Remove as admin 
+        app.put('/admin/remove/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                const filter = { email: email };
+                const updateDoc = {
+                    $set: {
+                        role: 'user'
+                    }
                 }
-            };
-            const result = await userCollection.updateOne(filter, updateDoc);
+                const options = { upsert: true };
+                const result = await userCollection.updateOne(filter, updateDoc, options);
+                res.send(result);
+            }
+            else {
+                res.status(403).send({ message: 'Access Denied' })
+            }
+
+        })
+
+        // Delete a user
+        app.delete('/user/delete/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const result = await userCollection.deleteOne(query);
             res.send(result);
         });
 
@@ -67,18 +115,28 @@ async function run() {
         })
 
         // Get all services
-        app.get('/service', async (req, res) => {
+        app.get('/service', verifyJWT, async (req, res) => {
             const query = {};
             const cursor = serviceCollection.find(query);
             const services = await cursor.toArray();
             res.send(services);
         });
 
+
         // Book a service
         app.post('/booking', async (req, res) => {
             const booking = req.body;
             const result = await bookingCollection.insertOne(booking);
             res.send({ success: true, result });
+        });
+
+        // Delete booking
+        app.delete('/booking/delete/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: ObjectId(id) };
+            const result = await bookingCollection.deleteOne(filter);
+            res.send(result);
         })
 
         // Filter all booked slot to remove or hide from UI. Cause, If anyone try to buy it will not show
