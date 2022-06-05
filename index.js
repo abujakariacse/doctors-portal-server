@@ -39,7 +39,7 @@ async function run() {
             res.send('Server is running.....')
         });
 
-        // Limit dashboard feature using admin role
+        // Limit dashboard feature using admin role on ui
         app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
             const result = await userCollection.findOne({ email: email });
@@ -70,7 +70,7 @@ async function run() {
 
         });
 
-        // Remove as admin 
+        // Remove from admin
         app.put('/admin/remove/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const requester = req.decoded.email;
@@ -92,7 +92,7 @@ async function run() {
 
         })
 
-        // Delete a user
+        // Delete a user from db
         app.delete('/user/delete/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const query = { email: email };
@@ -100,7 +100,7 @@ async function run() {
             res.send(result);
         });
 
-        // Get token
+        // Get token for login
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
@@ -114,7 +114,7 @@ async function run() {
             res.send({ result, token });
         })
 
-        // Get all services
+        // Get all services/appointment
         app.get('/service', verifyJWT, async (req, res) => {
             const query = {};
             const cursor = serviceCollection.find(query);
@@ -123,14 +123,14 @@ async function run() {
         });
 
 
-        // Book a service
+        // Book a service/appointment
         app.post('/booking', async (req, res) => {
             const booking = req.body;
             const result = await bookingCollection.insertOne(booking);
             res.send({ success: true, result });
         });
 
-        // Delete booking
+        // Delete booked appointment or service
         app.delete('/booking/delete/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             console.log(id);
@@ -139,7 +139,7 @@ async function run() {
             res.send(result);
         })
 
-        // Filter all booked slot to remove or hide from UI. Cause, If anyone try to buy it will not show
+        // Filter all booked slot to remove or hide from UI. Cause, If anyone try to buy it will not show again
         app.get('/availableSlots', async (req, res) => {
             const date = req.query.date;
 
@@ -171,7 +171,7 @@ async function run() {
             res.send(services)
         })
 
-        // Get all appointment of specific users
+        // Get all appointment of specific user
         app.get('/myappointments', verifyJWT, async (req, res) => {
             const decodedEmail = req.decoded.email;
             const email = req.query.email;
@@ -185,7 +185,7 @@ async function run() {
             }
         })
 
-        // Get All User
+        // Get All User that will show for admin
         app.get('/users', verifyJWT, async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
